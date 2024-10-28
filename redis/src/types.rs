@@ -1140,8 +1140,10 @@ impl Deref for InfoDict {
     }
 }
 
-/// High level representation of response to the `ROLE` command.
-#[derive(Debug, Clone)]
+/// High level representation of response to the [`ROLE`][1] command.
+///
+/// [1]: https://redis.io/docs/latest/commands/role/
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RoleRet {
     /// Represents a master role.
     Master {
@@ -1343,7 +1345,7 @@ pub trait ToRedisArgs: Sized {
     fn make_arg_iter_ref<'a, I, W>(items: I, out: &mut W)
     where
         W: ?Sized + RedisWrite,
-        I: Iterator<Item = &'a Self>,
+        I: Iterator<Item=&'a Self>,
         Self: 'a,
     {
         for item in items {

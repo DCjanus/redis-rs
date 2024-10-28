@@ -80,6 +80,75 @@ mod types {
     }
 
     #[test]
+    fn test_role_ret() {
+        use redis::RoleRet;
+
+        let parse_models = [RedisParseMode::Owned, RedisParseMode::Ref];
+        let test_cases = vec![
+            (Value::Array(vec![
+                Value::SimpleString("master".to_string()),
+                Value::Int(3129659),
+                Value::Array(vec![
+                    Value::Array(vec![
+                        Value::BulkString("127.0.0.1".into()),
+                        Value::BulkString("9001".into()),
+                        Value::BulkString("3129242".into())
+                    ]),
+                    Value::Array(vec![
+                        Value::BulkString("127.0.0.1".into()),
+                        Value::BulkString("9002".into()),
+                        Value::BulkString("3129543".into())
+                    ])
+                ]),
+            ]), RoleRet::Master {
+                replication_offset: 3129659,
+                slaves: vec![
+                    ("127.0.0.1".to_string(), "9001".to_string(), 3129242),
+                    ("127.0.0.1".to_string(), "9002".to_string(), 3129543),
+                ],
+            }),
+            (Value::Array(vec![
+                Value::SimpleString("slave".to_string()),
+                Value::BulkString("127.0.0.1".into()),
+                Value::Int(9000),
+                Value::SimpleString("connected".to_string()),
+                Value::Int(3167038),
+            ]), RoleRet::Slave {
+                master_ip: "127.0.0.1".to_string(),
+                master_port: 9000,
+                replication_state: "connected".to_string(),
+                data_received: 3167038,
+            }),
+            (
+                Value::Array(vec![
+                    Value::SimpleString("sentinel".to_string()),
+                    Value::Array(vec![
+                        Value::SimpleString("resque-master".to_string()),
+                        Value::SimpleString("html-fragments-master".to_string()),
+                        Value::SimpleString("stats-master".to_string()),
+                        Value::SimpleString("metadata-master".to_string()),
+                    ]),
+                ]),
+                RoleRet::Sentinel {
+                    master_names: vec![
+                        "resque-master".to_string(),
+                        "html-fragments-master".to_string(),
+                        "stats-master".to_string(),
+                        "metadata-master".to_string(),
+                    ],
+                }
+            )
+        ];
+
+        for parse_mode in &parse_models {
+            for (value, expected) in test_cases.clone() {
+                let parsed: RoleRet = parse_mode.parse_redis_value(value).unwrap();
+                assert_eq!(parsed, expected);
+            }
+        }
+    }
+
+    #[test]
     fn test_i32() {
         // from the book hitchhiker's guide to the galaxy
         let everything_num = 42i32;
