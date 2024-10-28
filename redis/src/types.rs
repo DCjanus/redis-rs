@@ -1345,7 +1345,7 @@ pub trait ToRedisArgs: Sized {
     fn make_arg_iter_ref<'a, I, W>(items: I, out: &mut W)
     where
         W: ?Sized + RedisWrite,
-        I: Iterator<Item=&'a Self>,
+        I: Iterator<Item = &'a Self>,
         Self: 'a,
     {
         for item in items {
