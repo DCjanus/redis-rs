@@ -81,7 +81,7 @@ mod types {
 
     #[test]
     fn test_role_ret() {
-        use redis::RoleRet;
+        use redis::Role;
 
         let parse_models = [RedisParseMode::Owned, RedisParseMode::Ref];
         let test_cases = vec![
@@ -102,7 +102,7 @@ mod types {
                         ]),
                     ]),
                 ]),
-                RoleRet::Master {
+                Role::Master {
                     replication_offset: 3129659,
                     slaves: vec![
                         ("127.0.0.1".to_string(), "9001".to_string(), 3129242),
@@ -118,7 +118,7 @@ mod types {
                     Value::SimpleString("connected".to_string()),
                     Value::Int(3167038),
                 ]),
-                RoleRet::Slave {
+                Role::Slave {
                     master_ip: "127.0.0.1".to_string(),
                     master_port: 9000,
                     replication_state: "connected".to_string(),
@@ -135,7 +135,7 @@ mod types {
                         Value::SimpleString("metadata-master".to_string()),
                     ]),
                 ]),
-                RoleRet::Sentinel {
+                Role::Sentinel {
                     master_names: vec![
                         "resque-master".to_string(),
                         "html-fragments-master".to_string(),
@@ -148,7 +148,7 @@ mod types {
 
         for parse_mode in &parse_models {
             for (value, expected) in test_cases.clone() {
-                let parsed: RoleRet = parse_mode.parse_redis_value(value).unwrap();
+                let parsed: Role = parse_mode.parse_redis_value(value).unwrap();
                 assert_eq!(parsed, expected);
             }
         }

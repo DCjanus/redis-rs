@@ -1144,7 +1144,7 @@ impl Deref for InfoDict {
 ///
 /// [1]: https://redis.io/docs/latest/commands/role/
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum RoleRet {
+pub enum Role {
     /// Represents a master role.
     Master {
         /// The current master replication offset
@@ -1170,7 +1170,7 @@ pub enum RoleRet {
     },
 }
 
-impl FromRedisValue for RoleRet {
+impl FromRedisValue for Role {
     fn from_redis_value(v: &Value) -> RedisResult<Self> {
         let v = match get_inner_value(v) {
             Value::Array(v) => v,
@@ -1184,15 +1184,15 @@ impl FromRedisValue for RoleRet {
             _ => invalid_type_error!(v, "RoleRet first element is not a string"),
         };
         match role {
-            "master" => RoleRet::new_master(v),
-            "slave" => RoleRet::new_slave(v),
-            "sentinel" => RoleRet::new_sentinel(v),
+            "master" => Role::new_master(v),
+            "slave" => Role::new_slave(v),
+            "sentinel" => Role::new_sentinel(v),
             _ => invalid_type_error!(v, format!("Unknown role type: {}", role)),
         }
     }
 }
 
-impl RoleRet {
+impl Role {
     fn new_master(v: &Vec<Value>) -> RedisResult<Self> {
         if v.len() < 3 {
             invalid_type_error!(
@@ -1226,7 +1226,7 @@ impl RoleRet {
             slaves.push((ip, port, offset));
         }
 
-        Ok(RoleRet::Master {
+        Ok(Role::Master {
             replication_offset,
             slaves,
         })
@@ -1245,7 +1245,7 @@ impl RoleRet {
         let replication_state = from_redis_value(&v[3])?;
         let data_received = from_redis_value(&v[4])?;
 
-        Ok(RoleRet::Slave {
+        Ok(Role::Slave {
             master_ip,
             master_port,
             replication_state,
@@ -1261,7 +1261,7 @@ impl RoleRet {
             )
         }
         let names = from_redis_value(&v[1])?;
-        Ok(RoleRet::Sentinel {
+        Ok(Role::Sentinel {
             master_names: names,
         })
     }

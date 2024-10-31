@@ -526,7 +526,7 @@ pub use crate::types::{
     SetExpiry,
     ExistenceCheck,
     ExpireOption,
-    RoleRet,
+    Role,
 
     // error and result types
     RedisError,
