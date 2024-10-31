@@ -1145,28 +1145,28 @@ impl Deref for InfoDict {
 /// [1]: https://redis.io/docs/latest/commands/role/
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Role {
-    /// Represents a master role.
-    Master {
-        /// The current master replication offset
+    /// Represents a primary role, which is `master` in legacy Redis terminology.
+    Primary {
+        /// The current primary replication offset
         replication_offset: u64,
-        /// List of slaves, each represented by a tuple of IP, port and the last acknowledged replication offset.
-        slaves: Vec<(String, String, u64)>,
+        /// List of replica, each represented by a tuple of IP, port and the last acknowledged replication offset.
+        replicas: Vec<(String, String, u64)>,
     },
-    /// Represents a slave role.
-    Slave {
-        /// The IP of the master.
-        master_ip: String,
-        /// The port of the master.
-        master_port: u16,
-        /// The state of the replication from the point of view of the master.
+    /// Represents a replica role, which is `slave` in legacy Redis terminology.
+    Replica {
+        /// The IP of the primary.
+        primary_ip: String,
+        /// The port of the primary.
+        primary_port: u16,
+        /// The state of the replication from the point of view of the primary.
         replication_state: String,
-        /// The amount of data received from the replica so far in terms of master replication offset.
+        /// The amount of data received from the replica so far in terms of primary replication offset.
         data_received: u64,
     },
     /// Represents a sentinel role.
     Sentinel {
-        /// List of master names monitored by this Sentinel instance.
-        master_names: Vec<String>,
+        /// List of primary names monitored by this Sentinel instance.
+        primary_names: Vec<String>,
     },
 }
 
@@ -1174,18 +1174,18 @@ impl FromRedisValue for Role {
     fn from_redis_value(v: &Value) -> RedisResult<Self> {
         let v = match get_inner_value(v) {
             Value::Array(v) => v,
-            _ => invalid_type_error!(v, "Response type not RoleRet compatible"),
+            _ => invalid_type_error!(v, "Response type not Role compatible"),
         };
         let role = match v.first() {
             Some(Value::SimpleString(role)) => role,
             Some(Value::BulkString(role)) => from_utf8(role)?,
             Some(Value::VerbatimString { text, .. }) => text,
-            None => invalid_type_error!(v, "RoleRet array is empty"),
-            _ => invalid_type_error!(v, "RoleRet first element is not a string"),
+            None => invalid_type_error!(v, "Role array is empty"),
+            _ => invalid_type_error!(v, "Role first element is not a string"),
         };
         match role {
-            "master" => Role::new_master(v),
-            "slave" => Role::new_slave(v),
+            "master" => Role::new_primary(v),
+            "slave" => Role::new_replica(v),
             "sentinel" => Role::new_sentinel(v),
             _ => invalid_type_error!(v, format!("Unknown role type: {}", role)),
         }
@@ -1193,61 +1193,61 @@ impl FromRedisValue for Role {
 }
 
 impl Role {
-    fn new_master(v: &Vec<Value>) -> RedisResult<Self> {
+    fn new_primary(v: &Vec<Value>) -> RedisResult<Self> {
         if v.len() < 3 {
             invalid_type_error!(
                 v,
-                "RoleRet master response too short, expected at least 3 elements"
+                "Role primary response too short, expected at least 3 elements"
             )
         }
 
         let replication_offset = from_redis_value(&v[1])?;
-        let slave_infos = match &v[2] {
-            Value::Array(slaves) => slaves,
-            _ => invalid_type_error!(v, "RoleRet master response slaves is not an array"),
+        let replica_infos = match &v[2] {
+            Value::Array(replicas) => replicas,
+            _ => invalid_type_error!(v, "Role primary response replicas is not an array"),
         };
 
-        let mut slaves = Vec::with_capacity(slave_infos.len());
-        for slave_info in slave_infos {
-            let slave_info = match get_inner_value(slave_info) {
-                Value::Array(slave_info) => slave_info,
-                _ => invalid_type_error!(v, "RoleRet master response slave info is not an array"),
+        let mut replicas = Vec::with_capacity(replica_infos.len());
+        for replica_info in replica_infos {
+            let replica_info = match get_inner_value(replica_info) {
+                Value::Array(replica_info) => replica_info,
+                _ => invalid_type_error!(v, "Role primary response replica info is not an array"),
             };
-            if slave_info.len() < 3 {
+            if replica_info.len() < 3 {
                 invalid_type_error!(
                     v,
-                    "RoleRet master response slave info too short, expected at least 3 elements"
+                    "Role primary response replica info too short, expected at least 3 elements"
                 )
             }
             // DO NOT Convert FROM TUPLE Directly, since there might be more than 3 elements in the future
-            let ip = from_redis_value(&slave_info[0])?;
-            let port = from_redis_value(&slave_info[1])?;
-            let offset = from_redis_value(&slave_info[2])?;
-            slaves.push((ip, port, offset));
+            let ip = from_redis_value(&replica_info[0])?;
+            let port = from_redis_value(&replica_info[1])?;
+            let offset = from_redis_value(&replica_info[2])?;
+            replicas.push((ip, port, offset));
         }
 
-        Ok(Role::Master {
+        Ok(Role::Primary {
             replication_offset,
-            slaves,
+            replicas,
         })
     }
 
-    fn new_slave(v: &Vec<Value>) -> RedisResult<Self> {
+    fn new_replica(v: &Vec<Value>) -> RedisResult<Self> {
         if v.len() < 5 {
             invalid_type_error!(
                 v,
-                "RoleRet slave response too short, expected at least 4 elements"
+                "Role replica response too short, expected at least 4 elements"
             )
         }
 
-        let master_ip = from_redis_value(&v[1])?;
-        let master_port = from_redis_value(&v[2])?;
+        let primary_ip = from_redis_value(&v[1])?;
+        let primary_port = from_redis_value(&v[2])?;
         let replication_state = from_redis_value(&v[3])?;
         let data_received = from_redis_value(&v[4])?;
 
-        Ok(Role::Slave {
-            master_ip,
-            master_port,
+        Ok(Role::Replica {
+            primary_ip,
+            primary_port,
             replication_state,
             data_received,
         })
@@ -1257,12 +1257,12 @@ impl Role {
         if v.len() < 2 {
             invalid_type_error!(
                 v,
-                "RoleRet sentinel response too short, expected at least 2 elements"
+                "Role sentinel response too short, expected at least 2 elements"
             )
         }
         let names = from_redis_value(&v[1])?;
         Ok(Role::Sentinel {
-            master_names: names,
+            primary_names: names,
         })
     }
 }

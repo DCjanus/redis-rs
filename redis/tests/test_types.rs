@@ -102,9 +102,9 @@ mod types {
                         ]),
                     ]),
                 ]),
-                Role::Master {
+                Role::Primary {
                     replication_offset: 3129659,
-                    slaves: vec![
+                    replicas: vec![
                         ("127.0.0.1".to_string(), "9001".to_string(), 3129242),
                         ("127.0.0.1".to_string(), "9002".to_string(), 3129543),
                     ],
@@ -118,9 +118,9 @@ mod types {
                     Value::SimpleString("connected".to_string()),
                     Value::Int(3167038),
                 ]),
-                Role::Slave {
-                    master_ip: "127.0.0.1".to_string(),
-                    master_port: 9000,
+                Role::Replica {
+                    primary_ip: "127.0.0.1".to_string(),
+                    primary_port: 9000,
                     replication_state: "connected".to_string(),
                     data_received: 3167038,
                 },
@@ -136,7 +136,7 @@ mod types {
                     ]),
                 ]),
                 Role::Sentinel {
-                    master_names: vec![
+                    primary_names: vec![
                         "resque-master".to_string(),
                         "html-fragments-master".to_string(),
                         "stats-master".to_string(),
